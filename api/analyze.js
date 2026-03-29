@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   try {
     const prompt = `
-你是一个黄金（XAUUSD）分析师。
+你是一个黄金（XAUUSD）宏观交易分析师。
 
 请严格按照以下JSON格式输出：
 
@@ -17,41 +17,43 @@ export default async function handler(req, res) {
 - 不要解释
 - 不要多余文字
 
-当前信息：
+当前市场信息：
 - 美元指数上涨
 - 美债收益率上升
-- 无明显避险情绪
+- 市场无明显避险情绪
 `;
 
-    // 👉 调用 AI（你可以换 DeepSeek / OpenAI）
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    // ✅ DeepSeek API调用
+    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
+        model: "deepseek-chat",
+        messages: [
+          { role: "user", content: prompt }
+        ],
         temperature: 0.3
       })
     });
 
     const result = await response.json();
 
-    // 👉 1. 获取AI原始输出
+    console.log("🔥 完整返回:", result);
+
+    // ✅ 获取AI文本（和OpenAI兼容）
     let aiText = result.choices?.[0]?.message?.content || "";
 
-    console.log("AI原始输出:", aiText);
+    console.log("🧠 AI原始输出:", aiText);
 
-    // 👉 2. 超强清洗函数（关键）
+    // 🧹 提取JSON（核心修复）
     function extractJSON(text) {
       if (!text) return null;
 
-      // 去掉 ```json ``` 包裹
       text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-      // 找第一个 { 到最后一个 }
       const start = text.indexOf("{");
       const end = text.lastIndexOf("}");
 
@@ -67,28 +69,27 @@ export default async function handler(req, res) {
     try {
       const jsonString = extractJSON(aiText);
 
-      if (!jsonString) throw new Error("没有找到JSON");
+      if (!jsonString) throw new Error("没有JSON");
 
       parsed = JSON.parse(jsonString);
     } catch (err) {
       console.error("❌ JSON解析失败:", aiText);
 
-      // 👉 3. 兜底智能解析（即使AI乱说也能用）
       parsed = fallbackParse(aiText);
     }
 
-    // 👉 4. 标准化输出（防止字段错）
+    // 🎯 标准化输出
     const finalData = {
       direction: normalizeDirection(parsed.direction),
       confidence: normalizeConfidence(parsed.confidence),
       analysis: parsed.analysis || "无分析",
-      raw: aiText // 👈 调试用
+      raw: aiText
     };
 
     res.status(200).json(finalData);
 
   } catch (error) {
-    console.error("服务器错误:", error);
+    console.error("❌ 服务器错误:", error);
 
     res.status(500).json({
       direction: "Neutral",
@@ -98,9 +99,7 @@ export default async function handler(req, res) {
   }
 }
 
-//
 // 🔧 工具函数
-//
 
 function normalizeDirection(dir) {
   if (!dir) return "Neutral";
@@ -128,7 +127,6 @@ function fallbackParse(text) {
     };
   }
 
-  // 👉 简单关键词判断（最后兜底）
   let direction = "Neutral";
 
   if (text.toLowerCase().includes("bull")) direction = "Bullish";
