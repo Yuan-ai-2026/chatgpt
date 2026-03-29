@@ -1,0 +1,13 @@
+name: Auto Update
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"  # 每30分钟
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping API
+        run: curl https://你的vercel地址/api/analyze
