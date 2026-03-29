@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 {
   "direction": "Bullish 或 Bearish",
   "confidence": 0-100之间的数字,
-  "analysis": "一句话解释"
+  "analysis": "一句话分析，不超过50字"
 }`
           }
         ],
