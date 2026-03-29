@@ -1,8 +1,7 @@
 export default async function handler(req, res) {
   try {
-    // 👉 1. 你的输入（可以以后改成动态数据）
     const prompt = `
-你是一个专业黄金交易分析师，请根据宏观信息判断黄金（XAUUSD）走势。
+你是一个黄金（XAUUSD）分析师。
 
 请严格按照以下JSON格式输出：
 
@@ -21,61 +20,72 @@ export default async function handler(req, res) {
 当前信息：
 - 美元指数上涨
 - 美债收益率上升
-- 市场无明显避险情绪
+- 无明显避险情绪
 `;
 
-    // 👉 2. 调用OpenAI
+    // 👉 调用 AI（你可以换 DeepSeek / OpenAI）
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
+        messages: [{ role: "user", content: prompt }],
         temperature: 0.3
       })
     });
 
-    const data = await response.json();
+    const result = await response.json();
 
-    // 👉 3. 获取AI原始输出
-    let aiText = data.choices?.[0]?.message?.content || "";
+    // 👉 1. 获取AI原始输出
+    let aiText = result.choices?.[0]?.message?.content || "";
 
     console.log("AI原始输出:", aiText);
 
-    // 👉 4. 清洗函数（关键）
-    function cleanJSON(text) {
-      return text
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
+    // 👉 2. 超强清洗函数（关键）
+    function extractJSON(text) {
+      if (!text) return null;
+
+      // 去掉 ```json ``` 包裹
+      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+      // 找第一个 { 到最后一个 }
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+
+      if (start !== -1 && end !== -1) {
+        return text.substring(start, end + 1);
+      }
+
+      return null;
     }
 
     let parsed;
 
     try {
-      const cleaned = cleanJSON(aiText);
-      parsed = JSON.parse(cleaned);
-    } catch (err) {
-      console.error("解析失败:", aiText);
+      const jsonString = extractJSON(aiText);
 
-      // 👉 5. fallback（避免崩溃）
-      parsed = {
-        direction: "Neutral",
-        confidence: 50,
-        analysis: "AI返回格式错误"
-      };
+      if (!jsonString) throw new Error("没有找到JSON");
+
+      parsed = JSON.parse(jsonString);
+    } catch (err) {
+      console.error("❌ JSON解析失败:", aiText);
+
+      // 👉 3. 兜底智能解析（即使AI乱说也能用）
+      parsed = fallbackParse(aiText);
     }
 
-    // 👉 6. 返回结果
-    res.status(200).json(parsed);
+    // 👉 4. 标准化输出（防止字段错）
+    const finalData = {
+      direction: normalizeDirection(parsed.direction),
+      confidence: normalizeConfidence(parsed.confidence),
+      analysis: parsed.analysis || "无分析",
+      raw: aiText // 👈 调试用
+    };
+
+    res.status(200).json(finalData);
 
   } catch (error) {
     console.error("服务器错误:", error);
@@ -86,4 +96,47 @@ export default async function handler(req, res) {
       analysis: "服务器错误"
     });
   }
+}
+
+//
+// 🔧 工具函数
+//
+
+function normalizeDirection(dir) {
+  if (!dir) return "Neutral";
+
+  const d = dir.toLowerCase();
+
+  if (d.includes("bull")) return "Bullish";
+  if (d.includes("bear")) return "Bearish";
+
+  return "Neutral";
+}
+
+function normalizeConfidence(num) {
+  const n = Number(num);
+  if (isNaN(n)) return 50;
+  return Math.max(0, Math.min(100, n));
+}
+
+function fallbackParse(text) {
+  if (!text) {
+    return {
+      direction: "Neutral",
+      confidence: 50,
+      analysis: "无数据"
+    };
+  }
+
+  // 👉 简单关键词判断（最后兜底）
+  let direction = "Neutral";
+
+  if (text.toLowerCase().includes("bull")) direction = "Bullish";
+  if (text.toLowerCase().includes("bear")) direction = "Bearish";
+
+  return {
+    direction,
+    confidence: 50,
+    analysis: text.slice(0, 60)
+  };
 }
