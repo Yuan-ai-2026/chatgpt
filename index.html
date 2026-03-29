@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Gold AI Dashboard</title>
+  <style>
+    body { background:#0f172a; color:white; font-family:sans-serif; }
+    .card {
+      background:#1e293b;
+      padding:20px;
+      border-radius:10px;
+      width:300px;
+      margin:50px auto;
+    }
+    .bullish { color:#22c55e; }
+    .bearish { color:#ef4444; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>GOLD (XAUUSD)</h2>
+  <p id="signal">Loading...</p>
+  <p id="analysis"></p>
+</div>
+
+<script>
+async function getAnalysis() {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer YOUR_API_KEY",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: "分析黄金走势：美元上涨，美债收益率上涨，无避险情绪"
+        }
+      ]
+    })
+  });
+
+  const data = await response.json();
+  const text = data.choices[0].message.content;
+
+  document.getElementById("analysis").innerText = text;
+
+  if (text.includes("Bullish")) {
+    document.getElementById("signal").innerHTML = "<span class='bullish'>Bullish</span>";
+  } else if (text.includes("Bearish")) {
+    document.getElementById("signal").innerHTML = "<span class='bearish'>Bearish</span>";
+  }
+}
+
+getAnalysis();
+</script>
+
+</body>
+</html>
