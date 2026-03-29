@@ -22,7 +22,6 @@ export default async function handler(req, res) {
       console.log("Alpha接口错误:", e);
     }
 
-    console.log("AI原始输出：", aiResponse)
     // =========================
     // 2️⃣ 调用AI（强制JSON输出）
     // =========================
@@ -78,7 +77,7 @@ export default async function handler(req, res) {
         analysis: "AI返回格式错误"
       };
     }
-
+    console.log("AI原始输出：", aiResponse)
     // =========================
     // 3️⃣ 返回结果
     // =========================
