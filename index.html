@@ -3,58 +3,68 @@
 <head>
   <title>Gold AI Dashboard</title>
   <style>
-    body { background:#0f172a; color:white; font-family:sans-serif; }
+    body {
+      background:#0f172a;
+      color:white;
+      font-family:sans-serif;
+      padding:40px;
+    }
+    .grid {
+      display:flex;
+      gap:20px;
+      flex-wrap:wrap;
+    }
     .card {
       background:#1e293b;
       padding:20px;
-      border-radius:10px;
+      border-radius:12px;
       width:300px;
-      margin:50px auto;
     }
     .bullish { color:#22c55e; }
     .bearish { color:#ef4444; }
+    .bar {
+      height:8px;
+      background:#334155;
+      border-radius:5px;
+      margin:10px 0;
+    }
+    .fill {
+      height:100%;
+      background:#22c55e;
+      border-radius:5px;
+    }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <h2>GOLD (XAUUSD)</h2>
-  <p id="signal">Loading...</p>
-  <p id="analysis"></p>
+<h1>📊 AI Macro Dashboard</h1>
+
+<div class="grid">
+  <div class="card">
+    <h2>GOLD (XAUUSD)</h2>
+    <h3 id="signal">Loading...</h3>
+    <div class="bar"><div id="confidence" class="fill" style="width:50%"></div></div>
+    <p id="analysis"></p>
+  </div>
 </div>
 
 <script>
-async function getAnalysis() {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: "分析黄金走势：美元上涨，美债收益率上涨，无避险情绪"
-        }
-      ]
-    })
-  });
+async function loadData() {
+  const res = await fetch("/api/analyze");
+  const data = await res.json();
 
-  const data = await response.json();
-  const text = data.choices[0].message.content;
+  document.getElementById("analysis").innerText = data.analysis;
 
-  document.getElementById("analysis").innerText = text;
-
-  if (text.includes("Bullish")) {
+  if (data.direction === "Bullish") {
     document.getElementById("signal").innerHTML = "<span class='bullish'>Bullish</span>";
-  } else if (text.includes("Bearish")) {
+  } else {
     document.getElementById("signal").innerHTML = "<span class='bearish'>Bearish</span>";
   }
+
+  document.getElementById("confidence").style.width = data.confidence + "%";
 }
 
-getAnalysis();
+loadData();
 </script>
 
 </body>
